@@ -1,3 +1,8 @@
+# StyleGAN: https://arxiv.org/pdf/1812.04948.pdf
+# GANs: https://arxiv.org/pdf/1406.2661.pdf
+# Progressive GANs: https://arxiv.org/pdf/1710.10196.pdf
+# ADAin: https://arxiv.org/pdf/1703.06868.pdf
+
 import tensorflow as tf
 from tensorflow.keras import Model, Sequential
 from tensorflow.keras.layers import Dense, Flatten, Conv2D, BatchNormalization, LeakyReLU, Reshape, Conv2DTranspose
@@ -11,7 +16,7 @@ import os
 
 from tensorflow.keras.optimizers import Adam
 
-args = get_args()
+args = get_args(True)
 generator_optimizer = Adam(learning_rate=args.learn_rate, beta_1=args.beta1)
 discriminator_optimizer = Adam(learning_rate=args.learn_rate, beta_1=args.beta1)
 

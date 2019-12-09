@@ -11,7 +11,17 @@ import numpy as np
 from imageio import imwrite
 
 # Train the model for one epoch.
-def train(generator, discriminator, dataset_iterator, manager, batch_size, z_dim, generator_optimizer, discriminator_optimizer):
+def train(
+	generator, 
+	discriminator, 
+	mapping_net,
+	dataset_iterator, 
+	manager, 
+	batch_size, 
+	z_dim, 
+	generator_optimizer, 
+	discriminator_optimizer
+	):
 	"""
 	Train the model for one epoch. Save a checkpoint every 500 or so batches.
 
@@ -28,6 +38,7 @@ def train(generator, discriminator, dataset_iterator, manager, batch_size, z_dim
 		z = uniform((batch_size, z_dim), minval=-1, maxval=1)
 
 		with GradientTape() as gen_tape, GradientTape() as disc_tape:
+			style_space = mapping_net(z)
 			# generated images
 			G_sample = generator(z, training=True)
 

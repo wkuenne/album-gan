@@ -1,8 +1,6 @@
 import argparse
 import tensorflow as tf
 
-
-
 def get_args(want_gpu=True):
     gpu_available = False
     if (want_gpu):
@@ -58,5 +56,8 @@ def get_args(want_gpu=True):
 
     parser.add_argument('--clear-processed', type=bool, default=False,
                         help='Clears the ./processed_data directory')
+
+    parser.add_argument('--mapping-dim', type=int, default=512,
+                        help='Mapping network dense layers will have [this many] units')
 
     return parser.parse_args()
