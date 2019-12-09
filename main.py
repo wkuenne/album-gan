@@ -10,15 +10,11 @@ from tensorflow.keras.layers import Dense, Flatten, Conv2D, BatchNormalization, 
 from preprocess import load_image_batch
 from get_args import get_args
 from train_test import train, test
-from models import make_generator, make_discriminator
+from models import make_generator, make_discriminator, make_noise_scale_net, make_affine_transform_net, make_mapping_net
 
 import os
 
-from tensorflow.keras.optimizers import Adam
-
-args = get_args(True)
-generator_optimizer = Adam(learning_rate=args.learn_rate, beta_1=args.beta1)
-discriminator_optimizer = Adam(learning_rate=args.learn_rate, beta_1=args.beta1)
+args = get_args(want_gpu=True)
 
 # Killing optional CPU driver warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -28,13 +24,16 @@ def main():
 	dataset_iterator = load_image_batch(args.img_dir, batch_size=args.batch_size, n_threads=args.num_data_threads)
 
 	# Initialize generator and discriminator models
-	generator = make_generator(args.num_channels, args.z_dim)
+	generator = make_generator(args.num_channels)
 	discriminator = make_discriminator(args.num_channels)
+	mapping_net = make_mapping_net(args.mapping_dim, args.z_dim)
+	noise_net = make_noise_scale_net(args.num_channels)
+	adain_net = make_affine_transform_net(args.num_channels, args.z_dim)
 
 	# For saving/loading models
 	checkpoint_dir = './checkpoints'
 	checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
-	checkpoint = tf.train.Checkpoint(generator=generator, discriminator=discriminator, generator_optimizer=generator_optimizer, discriminator_optimizer=discriminator_optimizer,)
+	checkpoint = tf.train.Checkpoint(generator=generator, discriminator=discriminator)
 	manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=3)
 	# Ensure the output directory exists
 	if not os.path.exists(args.out_dir):
@@ -50,7 +49,7 @@ def main():
 			if args.mode == 'train':
 				for epoch in range(0, args.num_epochs):
 					print('========================== EPOCH %d  ==========================' % epoch)
-					avg_fid = train(generator, discriminator, dataset_iterator, manager, args.batch_size, args.z_dim, generator_optimizer, discriminator_optimizer)
+					avg_fid = train(generator, discriminator, dataset_iterator, manager, mapping_net, noise_net, adain_net)
 					print("Average FID for Epoch: " + str(avg_fid))
 					# Save at the end of the epoch, too
 					print("**** SAVING CHECKPOINT AT END OF EPOCH ****")

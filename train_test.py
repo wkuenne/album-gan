@@ -10,17 +10,26 @@ import numpy as np
 
 from imageio import imwrite
 
+from get_args import get_args
+args = get_args()
+
+from tensorflow.keras.optimizers import Adam
+generator_optimizer = Adam(learning_rate=args.learn_rate, beta_1=args.beta1)
+discriminator_optimizer = Adam(learning_rate=args.learn_rate, beta_1=args.beta1)
+map_optimizer = Adam(learning_rate=args.learn_rate, beta_1=args.beta1)
+adain_optimizer = Adam(learning_rate=args.learn_rate, beta_1=args.beta1)
+
 # Train the model for one epoch.
 def train(
-	generator, 
-	discriminator, 
-	mapping_net,
-	dataset_iterator, 
-	manager, 
-	batch_size, 
-	z_dim, 
-	generator_optimizer, 
-	discriminator_optimizer
+		generator, 
+		discriminator, 
+		dataset_iterator, 
+		manager, 
+		mapping_net,
+		noise_net,
+		adain_net,
+		num_gen_updates=1,
+		num_channels=512
 	):
 	"""
 	Train the model for one epoch. Save a checkpoint every 500 or so batches.
@@ -32,15 +41,28 @@ def train(
 
 	:return: The average FID score over the epoch
 	"""
+	z_dim = args.z_dim
+	batch_size = args.batch_size
 	sum_fid = 0
 	# Loop over our data until we run out
 	for iteration, batch in enumerate(dataset_iterator):
 		z = uniform((batch_size, z_dim), minval=-1, maxval=1)
 
-		with GradientTape() as gen_tape, GradientTape() as disc_tape:
-			style_space = mapping_net(z)
+		# with GradientTape() as gen_tape, GradientTape() as disc_tape:
+		with GradientTape() as tape:
+			w = mapping_net(z)
+			assert(w.shape == (batch_size, z_dim))
+
+			adain_params = adain_net(w)
+			scale = tf.slice(adain_params, [0, 0, 0], (adain_params.shape[0], 1, -1))
+			bias = tf.slice(adain_params, [0, 1, 0], (adain_params.shape[0], 1, -1))
+			assert(scale.shape == (batch_size, 1, num_channels))
+			assert(scale.shape == (batch_size, 1, num_channels))
+
+			# noise_scale = noise_net(uniform((batch_size, 4, 4, z_dim), minval=-1, maxval=1))
+
 			# generated images
-			G_sample = generator(z, training=True)
+			G_sample = generator(scale, bias, z_dim)
 
 			# test discriminator against real images
 			logits_real = discriminator(batch, training=True)
@@ -49,13 +71,20 @@ def train(
 
 			g_loss = generator_loss(logits_fake)
 			d_loss = discriminator_loss(logits_real, logits_fake)
+
+		map_grads = tape.gradient(g_loss, mapping_net.trainable_variables) # success measured by same parameters
+		map_optimizer.apply_gradients(zip(map_grads, mapping_net.trainable_variables))
+
+		a_grads = tape.gradient(g_loss, adain_net.trainable_variables) # success measured by same parameters
+		adain_optimizer.apply_gradients(zip(a_grads, adain_net.trainable_variables))
 			
 		# optimize the generator and the discriminator
-		gen_gradients = gen_tape.gradient(g_loss, generator.trainable_variables)
+		gen_gradients = tape.gradient(g_loss, generator.trainable_variables)
 		generator_optimizer.apply_gradients(zip(gen_gradients, generator.trainable_variables))
 
-		disc_gradients = disc_tape.gradient(d_loss, discriminator.trainable_variables)
-		discriminator_optimizer.apply_gradients(zip(disc_gradients, discriminator.trainable_variables))
+		if (iteration % num_gen_updates == 0):
+			disc_gradients = tape.gradient(d_loss, discriminator.trainable_variables)
+			discriminator_optimizer.apply_gradients(zip(disc_gradients, discriminator.trainable_variables))
 
 		# Save
 		if iteration % args.save_every == 0:

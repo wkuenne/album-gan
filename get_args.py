@@ -1,7 +1,7 @@
 import argparse
 import tensorflow as tf
 
-def get_args(want_gpu=True):
+def get_args(want_gpu=False):
     gpu_available = False
     if (want_gpu):
         gpu_available = tf.test.is_gpu_available()
@@ -21,7 +21,7 @@ def get_args(want_gpu=True):
     parser.add_argument('--restore-checkpoint', action='store_true',
                         help='Use this flag if you want to resuming training from a previously-saved checkpoint')
 
-    parser.add_argument('--z-dim', type=int, default=100,
+    parser.add_argument('--z-dim', type=int, default=512,
                         help='Dimensionality of the latent space')
 
     parser.add_argument('--batch-size', type=int, default=128,
