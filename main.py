@@ -20,6 +20,41 @@ args = get_args(want_gpu=True)
 # Killing optional CPU driver warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 		
+<<<<<<< HEAD
+def main():
+	# Load images
+	rock = load_image_batch(args.img_dir + '/rock')
+	rap = load_image_batch(args.img_dir + '/rap')
+	jazz = load_image_batch(args.img_dir + '/jazz')
+
+	# generate labels and make full dataset
+	genre_labels = np.zeros(((len(rock) + len(rap) + len(jazz)),))
+	dataset = np.zeros(((len(rock) + len(rap) + len(jazz)), rock[0].shape[0], rock[0].shape[1], rock[0].shape[2]))
+
+	# concatenating is super slow, so we do this
+	for i in range(len(rock)):
+		dataset[i] = rock[i]
+
+	offset = len(rock)
+	for i in range(len(rap)):
+		genre_labels[i + offset] = 1
+		dataset[i + offset] = rap[i]
+		
+	offset = len(rock) + len(jazz)
+	for i in range(len(jazz)):
+		genre_labels[i + offset] = 2
+		dataset[i + offset] = jazz[i]
+
+	dataset = tf.convert_to_tensor(dataset)
+	genre_labels = tf.convert_to_tensor(genre_labels)
+	
+	# Initialize models
+	generator = Generator_Model()
+	discriminator = Discriminator_Model()
+	mapping_net = make_mapping_net()
+	noise_net = make_noise_scale_net()
+	adain_net = make_affine_transform_net()
+=======
 def iter_len(iterr):
 	l = 0
 	for i, e in enumerate(iterr):
@@ -49,6 +84,7 @@ def main():
 	mapping_net = make_mapping_net(args.mapping_dim, args.z_dim)
 	noise_net = make_noise_scale_net(args.num_channels)
 	adain_net = make_affine_transform_net(args.num_channels, args.z_dim)
+>>>>>>> 84e703ba0738f90778999d631c37be68a1187cbc
 
 	# For saving/loading models
 	checkpoint_dir = './checkpoints'

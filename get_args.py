@@ -66,7 +66,11 @@ def get_args(want_gpu=False):
     parser.add_argument('--num-genres', type=int, default=3,
                         help='[This many] genres are analyzed')
 
+<<<<<<< HEAD
+    parser.add_argument('--image-side-len', type=int, default=64,
+=======
     parser.add_argument('--img-side-len', type=int, default=64,
+>>>>>>> 84e703ba0738f90778999d631c37be68a1187cbc
                         help='Length of one side of an image (images must be square)')
 
     return parser.parse_args()
