@@ -10,39 +10,42 @@ from tensorflow.keras.layers import Dense, Flatten, Conv2D, BatchNormalization, 
 from preprocess import load_image_batch
 from get_args import get_args
 from train_test import train, test
-from models import make_generator, make_discriminator, make_noise_scale_net, make_affine_transform_net, make_mapping_net
+from models import Generator_Model, Discriminator_Model, make_noise_scale_net, make_affine_transform_net, make_mapping_net
 
 import numpy as np
 import os
 
-args = get_args(want_gpu=True[])
+args = get_args(want_gpu=True)
 
 # Killing optional CPU driver warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-
-def dict_genres(genres):
-	genres_map = {}
-	for i in range(len(genres)):
-		genres_map[i].map(lambda cover: genres[cover] = i)
-		# genres_map[i] = genres[i]
-	return genres_map
 		
+def iter_len(iterr):
+	l = 0
+	for i, e in enumerate(iterr):
+		print(e)
+		l += 1
+	return l
 
 def main():
 	# Load a batch of images (to feed to the discriminator)
-	rock = list(load_image_batch(args.img_dir + '/rock', batch_size=args.batch_size, n_threads=args.num_data_threads))
-	rap = list(load_image_batch(args.img_dir + '/rap', batch_size=args.batch_size, n_threads=args.num_data_threads))
-	jazz = list(load_image_batch(args.img_dir + '/jazz', batch_size=args.batch_size, n_threads=args.num_data_threads))
+	rock = load_image_batch(args.img_dir + '/rock', batch_size=args.batch_size, n_threads=args.num_data_threads)
+	rap = load_image_batch(args.img_dir + '/rap', batch_size=args.batch_size, n_threads=args.num_data_threads)
+	jazz = load_image_batch(args.img_dir + '/jazz', batch_size=args.batch_size, n_threads=args.num_data_threads)
 	
-	genre_labels = np.concat(np.full(len(rock), 0), np.full(len(rap), 1), np.full(len(jazz)), 2)
+	rock_len = iter_len(rock)
+	rap_len = iter_len(rap)
+	jazz_len = iter_len(jazz)
+
+	genre_labels = np.concatenate([np.full(rock_len, 0), np.full(rap_len, 1), np.full(jazz_len, 2)])
 	dataset = chain(rock, rap, jazz)
 	# dataset_iterator = list(dataset_iterator)
 	# np.random.shuffle(dataset_iterator)
 	# dataset_iterator = iter(dataset_iterator)
 
 	# Initialize models
-	generator = make_generator(args.num_channels)
-	discriminator = make_discriminator(args.num_channels)
+	generator = Generator_Model(args.num_channels, args.num_genres, args.img_side_len)
+	discriminator = Discriminator_Model(args.num_channels, args.num_genres, args.img_side_len)
 	mapping_net = make_mapping_net(args.mapping_dim, args.z_dim)
 	noise_net = make_noise_scale_net(args.num_channels)
 	adain_net = make_affine_transform_net(args.num_channels, args.z_dim)

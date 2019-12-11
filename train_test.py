@@ -23,7 +23,7 @@ adain_optimizer = Adam(learning_rate=args.learn_rate, beta_1=args.beta1)
 def train(
 		generator, 
 		discriminator, 
-		dataset,
+		dataset_iterator,
 		genre_labels, 
 		manager, 
 		mapping_net,
@@ -50,9 +50,9 @@ def train(
 	num_examples = len(indices)
 
 	# Loop over our data until we run out
-	for iteration in range(num_examples):
-		batch = tf.gather(dataset, indices[k : k + batch_size if k + batch_size < num_examples else num_examples])
-		labels = tf.gather(genre_labels, indices[k : k + batch_size if k + batch_size < num_examples else num_examples])
+	for i, batch in enumerate(dataset_iterator):
+		batch = tf.gather(dataset, indices[i : i + batch_size if i + batch_size < num_examples else num_examples])
+		labels = tf.gather(genre_labels, indices[i : i + batch_size if i + batch_size < num_examples else num_examples])
 
 		z = uniform((batch_size, z_dim), minval=-1, maxval=1)
 
@@ -81,23 +81,23 @@ def train(
 		gen_gradients = tape.gradient(g_loss, generator.trainable_variables)
 		generator_optimizer.apply_gradients(zip(gen_gradients, generator.trainable_variables))
 
-		if (iteration % num_gen_updates == 0):
+		if (i % num_gen_updates == 0):
 			disc_gradients = tape.gradient(d_loss, discriminator.trainable_variables)
 			discriminator_optimizer.apply_gradients(zip(disc_gradients, discriminator.trainable_variables))
 
 		# Save
-		if iteration % args.save_every == 0:
+		if i % args.save_every == 0:
 			manager.save()
 
 		# Calculate inception distance and track the fid in order
 		# to return the average
-		if iteration % 500 == 0:
+		if i % 500 == 0:
 			fid_ = fid_function(batch, G_sample)
 			print('**** D_LOSS: %g ****' % d_loss)
 			print('**** G_LOSS: %g ****' % g_loss)
 			print('**** INCEPTION DISTANCE: %g ****' % fid_)
 			sum_fid += fid_
-	return sum_fid / (iteration // 500)
+	return sum_fid / (i // 500)
 
 
 # Test the model by generating some samples.
