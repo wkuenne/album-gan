@@ -12,18 +12,35 @@ from get_args import get_args
 from train_test import train, test
 from models import make_generator, make_discriminator, make_noise_scale_net, make_affine_transform_net, make_mapping_net
 
+import numpy as np
 import os
 
-args = get_args(want_gpu=True)
+args = get_args(want_gpu=True[])
 
 # Killing optional CPU driver warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
+def dict_genres(genres):
+	genres_map = {}
+	for i in range(len(genres)):
+		genres_map[i].map(lambda cover: genres[cover] = i)
+		# genres_map[i] = genres[i]
+	return genres_map
+		
+
 def main():
 	# Load a batch of images (to feed to the discriminator)
-	dataset_iterator = load_image_batch(args.img_dir, batch_size=args.batch_size, n_threads=args.num_data_threads)
+	rock = list(load_image_batch(args.img_dir + '/rock', batch_size=args.batch_size, n_threads=args.num_data_threads))
+	rap = list(load_image_batch(args.img_dir + '/rap', batch_size=args.batch_size, n_threads=args.num_data_threads))
+	jazz = list(load_image_batch(args.img_dir + '/jazz', batch_size=args.batch_size, n_threads=args.num_data_threads))
+	
+	genre_labels = np.concat(np.full(len(rock), 0), np.full(len(rap), 1), np.full(len(jazz)), 2)
+	dataset = chain(rock, rap, jazz)
+	# dataset_iterator = list(dataset_iterator)
+	# np.random.shuffle(dataset_iterator)
+	# dataset_iterator = iter(dataset_iterator)
 
-	# Initialize generator and discriminator models
+	# Initialize models
 	generator = make_generator(args.num_channels)
 	discriminator = make_discriminator(args.num_channels)
 	mapping_net = make_mapping_net(args.mapping_dim, args.z_dim)
@@ -49,7 +66,7 @@ def main():
 			if args.mode == 'train':
 				for epoch in range(0, args.num_epochs):
 					print('========================== EPOCH %d  ==========================' % epoch)
-					avg_fid = train(generator, discriminator, dataset_iterator, manager, mapping_net, noise_net, adain_net)
+					avg_fid = train(generator, discriminator, dataset, genre_labels, manager, mapping_net, noise_net, adain_net)
 					print("Average FID for Epoch: " + str(avg_fid))
 					# Save at the end of the epoch, too
 					print("**** SAVING CHECKPOINT AT END OF EPOCH ****")

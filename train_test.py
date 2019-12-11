@@ -23,20 +23,22 @@ adain_optimizer = Adam(learning_rate=args.learn_rate, beta_1=args.beta1)
 def train(
 		generator, 
 		discriminator, 
-		dataset_iterator, 
+		dataset,
+		genre_labels, 
 		manager, 
 		mapping_net,
 		noise_net,
 		adain_net,
 		num_gen_updates=1,
-		num_channels=512
+		num_channels=512,
+		num_genres=3
 	):
 	"""
 	Train the model for one epoch. Save a checkpoint every 500 or so batches.
 
 	:param generator: generator model
 	:param discriminator: discriminator model
-	:param dataset_ierator: iterator over dataset, see preprocess.py for more information
+	:param dataset: list of all album covers
 	:param manager: the manager that handles saving checkpoints by calling save()
 
 	:return: The average FID score over the epoch
@@ -44,30 +46,27 @@ def train(
 	z_dim = args.z_dim
 	batch_size = args.batch_size
 	sum_fid = 0
+	indices = tf.random.shuffle(tf.range(genre_labels))
+	num_examples = len(indices)
+
 	# Loop over our data until we run out
-	for iteration, batch in enumerate(dataset_iterator):
+	for iteration in range(num_examples):
+		batch = tf.gather(dataset, indices[k : k + batch_size if k + batch_size < num_examples else num_examples])
+		labels = tf.gather(genre_labels, indices[k : k + batch_size if k + batch_size < num_examples else num_examples])
+
 		z = uniform((batch_size, z_dim), minval=-1, maxval=1)
 
-		# with GradientTape() as gen_tape, GradientTape() as disc_tape:
 		with GradientTape() as tape:
 			w = mapping_net(z)
 			assert(w.shape == (batch_size, z_dim))
 
-			adain_params = adain_net(w)
-			scale = tf.slice(adain_params, [0, 0, 0], (adain_params.shape[0], 1, -1))
-			bias = tf.slice(adain_params, [0, 1, 0], (adain_params.shape[0], 1, -1))
-			assert(scale.shape == (batch_size, 1, num_channels))
-			assert(scale.shape == (batch_size, 1, num_channels))
-
-			# noise_scale = noise_net(uniform((batch_size, 4, 4, z_dim), minval=-1, maxval=1))
-
 			# generated images
-			G_sample = generator(scale, bias, z_dim)
+			G_sample = generator(adain_net, w, labels)
 
 			# test discriminator against real images
-			logits_real = discriminator(batch, training=True)
+			logits_real = discriminator(batch, labels)
 			# re-use discriminator weights on new inputs
-			logits_fake = discriminator(G_sample, training=True)
+			logits_fake = discriminator(G_sample, labels)
 
 			g_loss = generator_loss(logits_fake)
 			d_loss = discriminator_loss(logits_real, logits_fake)
@@ -110,7 +109,7 @@ def test(generator, batch_size, z_dim, out_dir):
 
 	:return: None
 	"""
-	img = np.array(generator(uniform(batch_size, z_dim), minval=-1, maxval=1), training=False)
+	img = np.array(generator(uniform(batch_size, z_dim), minval=-1, maxval=1), np.random.randint(num_genres+1, size=(batch_size,)))
 
 	### Below, we've already provided code to save these generated images to files on disk
 	# Rescale the image from (-1, 1) to (0, 255)
