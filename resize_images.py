@@ -11,7 +11,7 @@ def resize_images(old_dir, new_dir, size, clear_processed=False):
     if not exists(new_dir):
         makedirs(new_dir)
     elif len(listdir(new_dir)) != 0:
-        print('f Error: possible overwrite of processed data. Use --clear-processed=True to clear {new_dir}.')
+        #print('f Error: possible overwrite of processed data. Use --clear-processed=True to clear {new_dir}.')
         return
 
     all_stuff = listdir(old_dir)
