@@ -11,11 +11,11 @@ def resize_images(old_dir, new_dir, size, clear_processed=False):
     if not exists(new_dir):
         makedirs(new_dir)
     elif len(listdir(new_dir)) != 0:
-        print(f'Error: possible overwrite of processed data. Use --clear-processed=True to clear {new_dir}.')
+        print("f Error: possible overwrite of processed data. Use --clear-processed=True to clear {new_dir}.")
         return
 
     all_stuff = listdir(old_dir)
-    is_image = lambda f: f[-4:] == '.png' or f[-4:] == '.jpg' or f[-5:] == '.jpeg' 
+    is_image = lambda f: f[-4:] == '.png' or f[-4:] == '.jpg' or f[-5:] == '.jpeg'
     only_images = [f for f in all_stuff if (isfile(join(old_dir, f)) and is_image(f) )]
 
     errors = 0
