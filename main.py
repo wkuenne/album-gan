@@ -10,25 +10,49 @@ from tensorflow.keras.layers import Dense, Flatten, Conv2D, BatchNormalization, 
 from preprocess import load_image_batch
 from get_args import get_args
 from train_test import train, test
-from models import make_generator, make_discriminator, make_noise_scale_net, make_affine_transform_net, make_mapping_net
+from models import Generator_Model, Discriminator_Model, Mapping_Model, ADAin_Model, make_noise_scale_net
 
+import numpy as np
 import os
 
 args = get_args(want_gpu=True)
 
 # Killing optional CPU driver warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-
+		
 def main():
-	# Load a batch of images (to feed to the discriminator)
-	dataset_iterator = load_image_batch(args.img_dir, batch_size=args.batch_size, n_threads=args.num_data_threads)
+	# Load images
+	rock = load_image_batch(args.img_dir + '/rock')
+	rap = load_image_batch(args.img_dir + '/rap')
+	jazz = load_image_batch(args.img_dir + '/jazz')
 
-	# Initialize generator and discriminator models
-	generator = make_generator(args.num_channels)
-	discriminator = make_discriminator(args.num_channels)
-	mapping_net = make_mapping_net(args.mapping_dim, args.z_dim)
-	noise_net = make_noise_scale_net(args.num_channels)
-	adain_net = make_affine_transform_net(args.num_channels, args.z_dim)
+	# generate labels and make full dataset
+	genre_labels = np.zeros(((len(rock) + len(rap) + len(jazz)),))
+	dataset = np.zeros(((len(rock) + len(rap) + len(jazz)), rock[0].shape[0], rock[0].shape[1], rock[0].shape[2]))
+
+	# concatenating is super slow, so we do this
+	for i in range(len(rock)):
+		dataset[i] = rock[i]
+
+	offset = len(rock)
+	for i in range(len(rap)):
+		genre_labels[i + offset] = 1
+		dataset[i + offset] = rap[i]
+		
+	offset = len(rock) + len(jazz)
+	for i in range(len(jazz)):
+		genre_labels[i + offset] = 2
+		dataset[i + offset] = jazz[i]
+
+	dataset = tf.convert_to_tensor(dataset)
+	genre_labels = tf.convert_to_tensor(genre_labels)
+	
+	# Initialize models
+	generator = Generator_Model()
+	discriminator = Discriminator_Model()
+	mapping_net = Mapping_Model()
+	noise_net = make_noise_scale_net()
+	adain_net = ADAin_Model()
 
 	# For saving/loading models
 	checkpoint_dir = './checkpoints'
@@ -49,7 +73,7 @@ def main():
 			if args.mode == 'train':
 				for epoch in range(0, args.num_epochs):
 					print('========================== EPOCH %d  ==========================' % epoch)
-					avg_fid = train(generator, discriminator, dataset_iterator, manager, mapping_net, noise_net, adain_net)
+					avg_fid = train(generator, discriminator, dataset, genre_labels, manager, mapping_net, noise_net, adain_net)
 					print("Average FID for Epoch: " + str(avg_fid))
 					# Save at the end of the epoch, too
 					print("**** SAVING CHECKPOINT AT END OF EPOCH ****")

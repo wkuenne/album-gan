@@ -32,4 +32,4 @@ def resize_images(old_dir, new_dir, size, clear_processed=False):
 
 
 args = get_args()
-resize_images(args.img_dir, './processed_data/', (64, 64), args.clear_processed)
+resize_images(args.img_dir, './processed_data' + ('/' if args.processed_dir[0] != '/' else '') + args.processed_dir + ('/' if args.processed_dir[-1] != '/' else ''), (args.image_side_len, args.image_side_len), args.clear_processed)
