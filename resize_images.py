@@ -25,7 +25,7 @@ def resize_images(old_dir, new_dir, size, clear_processed=False):
             img = img.resize(size, Image.ANTIALIAS)
             img.save(new_dir + f)
         except:
-            print(f'Error resizing ${f}')
+            # print(f'Error resizing ${f}')
             errors += 1
 
     print(f'Resized {len(only_images) - errors} images to {size[0]}x{size[1]} with {errors} errors')
