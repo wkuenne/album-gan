@@ -1,5 +1,4 @@
 import tensorflow as tf
-from tensorflow.random import uniform
 from tensorflow import GradientTape
 import numpy as np
 
@@ -55,7 +54,7 @@ def train(
 		batch = tf.gather(dataset, indices[i : i + batch_size if i + batch_size < num_examples else num_examples])
 		labels = tf.gather(genre_labels, indices[i : i + batch_size if i + batch_size < num_examples else num_examples])
 
-		z = uniform((batch_size, z_dim), minval=-1, maxval=1)
+		z = tf.random.uniform((batch_size, z_dim), minval=-1, maxval=1)
 
 		with GradientTape(persistent=True) as tape:
 			w = mapping_net(z)
@@ -67,11 +66,8 @@ def train(
 			logits_real = discriminator(batch, labels)
 			# re-use discriminator weights on new inputs
 			logits_fake = discriminator(G_sample, labels)
-
 			
 			g_loss = generator_loss(logits_fake)
-			# g_loss = tf.reduce_sum(p)
-			#g_loss = tf.reduce_sum(G_sample)
 			d_loss = discriminator_loss(logits_real, logits_fake)
 
 		map_grads = tape.gradient(g_loss, mapping_net.trainable_variables) # success measured by same parameters
@@ -92,6 +88,9 @@ def train(
 		if i % args.save_every == 0:
 			manager.save()
 
+		print('**** D_LOSS: %g ****' % d_loss)
+		print('**** G_LOSS: %g ****' % g_loss)
+
 		# Calculate inception distance and track the fid in order
 		# to return the average
 		if i % 500 == 0:
@@ -104,7 +103,7 @@ def train(
 
 
 # Test the model by generating some samples.
-def test(generator, mapping_net):
+def test(generator, mapping_net, adain_net, discriminator):
 	"""
 	Test the model.
 
@@ -112,7 +111,8 @@ def test(generator, mapping_net):
 
 	:return: None
 	"""
-	img = np.array(generator(adain_net, mapping_net(uniform(batch_size, z_dim), minval=-1, maxval=1), np.random.randint(num_genres+1, size=(batch_size,))))
+	img = np.array(generator(adain_net, mapping_net(tf.random.uniform((batch_size, z_dim), minval=-1, maxval=1)), np.random.randint(num_genres, size=(batch_size,))))
+	discriminator(generator(adain_net, mapping_net(tf.random.uniform((batch_size, z_dim), minval=-1, maxval=1)), np.random.randint(num_genres, size=(batch_size,))), np.random.randint(num_genres, size=(batch_size,)))
 
 	### Below, we've already provided code to save these generated images to files on disk
 	# Rescale the image from (-1, 1) to (0, 255)

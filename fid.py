@@ -9,7 +9,8 @@ import tensorflow_hub as hub
 # Frechet Inception Distance measures how similar the generated images are to the real ones
 # https://nealjean.com/ml/frechet-inception-distance/
 # Lower is better
-module = tf.keras.Sequential([hub.KerasLayer("https://tfhub.dev/google/tf2-preview/inception_v3/classification/4", output_shape=[1001])])
+
+module = None # tf.keras.Sequential([hub.KerasLayer("https://tfhub.dev/google/tf2-preview/inception_v3/classification/4", output_shape=[1001])])
 def fid_function(real_image_batch, generated_image_batch):
 	"""
 	Given a batch of real images and a batch of generated images, this function pulls down a pre-trained inception 
@@ -21,6 +22,9 @@ def fid_function(real_image_batch, generated_image_batch):
 
 	:return: the inception distance between the real and generated images, scalar
 	"""
+	if (module == None):
+		return -1
+
 	INCEPTION_IMAGE_SIZE = (299, 299)
 	real_resized = image.resize(real_image_batch, INCEPTION_IMAGE_SIZE)
 	fake_resized = image.resize(generated_image_batch, INCEPTION_IMAGE_SIZE)
