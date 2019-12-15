@@ -61,6 +61,7 @@ def train(
 
 			# generated images
 			G_sample = generator(adain_net, w, labels)
+			print("t")
 
 			# test discriminator against real images
 			logits_real = discriminator(batch, labels)

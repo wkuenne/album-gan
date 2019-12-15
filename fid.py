@@ -5,12 +5,15 @@ from tensorflow import image
 import tensorflow_gan as tfgan
 import tensorflow_hub as hub
 
+from get_args import get_args
+args = get_args()
+
 # For evaluating the quality of generated images
 # Frechet Inception Distance measures how similar the generated images are to the real ones
 # https://nealjean.com/ml/frechet-inception-distance/
 # Lower is better
 
-module = None # tf.keras.Sequential([hub.KerasLayer("https://tfhub.dev/google/tf2-preview/inception_v3/classification/4", output_shape=[1001])])
+module = None if not args.use_fid else tf.keras.Sequential([hub.KerasLayer("https://tfhub.dev/google/tf2-preview/inception_v3/classification/4", output_shape=[1001])])
 def fid_function(real_image_batch, generated_image_batch):
 	"""
 	Given a batch of real images and a batch of generated images, this function pulls down a pre-trained inception 

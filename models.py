@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras import Sequential, Model
-from tensorflow.keras.layers import Concatenate, Embedding, Layer, GaussianNoise, Dense, Conv2D, BatchNormalization, Conv2DTranspose
+from tensorflow.keras.layers import Reshape, Concatenate, Embedding, Layer, GaussianNoise, Dense, Conv2D, BatchNormalization, Conv2DTranspose
 
 from get_args import get_args
 args = get_args()
@@ -14,7 +14,7 @@ mapping_dim = args.mapping_dim
 image_side_len = args.image_side_len
 n_genres = args.num_genres
 
-num_convolutions = 7
+num_convolutions = 4
 
 class Generator_Model(Model):
 	def __init__(self):
@@ -27,20 +27,28 @@ class Generator_Model(Model):
 		self.smallest_img_side_len = (image_side_len // (num_convolutions**2))
 
 		# learned constant in StyleGAN
-		self.learned_const = tf.constant(tf.random.normal((batch_size, self.smallest_img_side_len, self.smallest_img_side_len, num_channels)))
+		self.learned_const = tf.Variable(tf.random.normal((batch_size, self.smallest_img_side_len, self.smallest_img_side_len, num_channels)))
+
+		# cGAN embeddings of genres
+		self.embedding_size = 50
+		self.embedding = Embedding(n_genres, self.embedding_size, name="generator")
+		self.embed_dense = Dense(self.smallest_img_side_len ** 2, activation=tf.nn.leaky_relu, name="embedding_dense")
+		self.embed_reshape = Reshape((self.smallest_img_side_len, self.smallest_img_side_len, 1))
+
+		# cGAN prepping for random constant
+		self.initial_dense = Dense(num_channels, activation=tf.nn.leaky_relu)
+		self.initial_reshape = Reshape((self.smallest_img_side_len, self.smallest_img_side_len, num_channels))
 
 		# StyleGAN layers
 		self.deconv1 = Conv2DTranspose(num_channels // 2, (3, 3), strides=(2, 2), padding='same', use_bias=False)
 		self.deconv2 = Conv2DTranspose(num_channels // 4, (3, 3), strides=(2, 2), padding='same', use_bias=False)
 		self.deconv3 = Conv2DTranspose(num_channels // 8, (3, 3), strides=(2, 2), padding='same', use_bias=False)
-		self.deconv4 = Conv2DTranspose(num_channels // 16, (3, 3), strides=(2, 2), padding='same', use_bias=False)
-		self.deconv5 = Conv2DTranspose(num_channels // 32, (3, 3), strides=(2, 2), padding='same', use_bias=False)
-		self.deconv6 = Conv2DTranspose(num_channels // 64, (3, 3), strides=(2, 2), padding='same', use_bias=False)
 		self.finaldeconv = Conv2DTranspose(3, (3, 3), strides=(2, 2), padding='same', use_bias=False, activation='tanh')
 
 		# various layers
 		self.noise = ScaledGaussianNoise(stddev=1)
 		self.adain = ADAin()
+		self.merge = Concatenate()
 
 	@tf.function
 	def call(self, adain_net, w, genres, noise_scale=1):
@@ -51,20 +59,22 @@ class Generator_Model(Model):
 
 		:return: prescaled generated images, shape=[batch_size, height, width, channel]
 		"""
-		out = self.learned_const
-		# (scale, bias) = self.get_adain_params(adain_net, w, out.shape[-1])
-		# adain1 = self.adain(self.noise(out), scale, bias)
-		# synthesized = layer(adain1)
-		# (scale, bias) = self.get_adain_params(adain_net, w, synthesized.shape[-1])
-		# adain2 = self.adain(self.noise(synthesized), scale, bias)
-		# out = tf.nn.leaky_relu(adain2)
-		out1 = self.deconvolve(self.deconv1, out, adain_net, w)
+		genres = tf.convert_to_tensor(genres)
+
+		# get embedding of genre label
+		embed = self.embedding(genres)
+		embed = self.embed_reshape(self.embed_dense(embed))
+		out = self.initial_reshape(self.initial_dense(self.learned_const))
+
+		# merge embedding information and image information
+		combined = self.merge([embed, out])
+
+		# StyleGAN
+		# combined = self.learned_const
+		out1 = self.deconvolve(self.deconv1, combined, adain_net, w)
 		out2 = self.deconvolve(self.deconv2, out1, adain_net, w)
 		out3 = self.deconvolve(self.deconv3, out2, adain_net, w)
-		out4 = self.deconvolve(self.deconv4, out3, adain_net, w)
-		out5 = self.deconvolve(self.deconv5, out4, adain_net, w)
-		out6 = self.deconvolve(self.deconv6, out5, adain_net, w)
-		return self.finaldeconv(out6)
+		return self.finaldeconv(out3)
 
 	def deconvolve(self, layer, x, a, w):
 		# get ADAin scale, bias vectors
@@ -93,17 +103,22 @@ class Discriminator_Model(tf.keras.Model):
 		"""
 		The model for the discriminator network is defined here. 
 		"""
+		# cGAN embedding of labels
+		self.embedding_size = 50
+		self.embedding = Embedding(n_genres, self.embedding_size, name='DiscEmbedding')
+		self.embed_dense = Dense(image_side_len**2, activation=tf.nn.leaky_relu)
+		self.embed_reshape = Reshape((image_side_len, image_side_len, 1))
+
 		# GAN conv layers
-		self.conv1 = Conv2D(num_channels // 64, (5, 5), strides=(2, 2), padding='same', use_bias=False)
-		self.conv2 = Conv2D(num_channels // 32, (5, 5), strides=(2, 2), padding='same', use_bias=False)
-		self.conv3 = Conv2D(num_channels // 16, (5, 5), strides=(2, 2), padding='same', use_bias=False)
-		self.conv4 = Conv2D(num_channels // 8, (5, 5), strides=(2, 2), padding='same', use_bias=False)
-		self.conv5 = Conv2D(num_channels // 4, (5, 5), strides=(2, 2), padding='same', use_bias=False)
-		self.conv6 = Conv2D(num_channels // 2, (5, 5), strides=(2, 2), padding='same', use_bias=False)
-		self.finalconv = Conv2D(num_channels, (5, 5), strides=(2, 2), padding='same', use_bias=False)
+		self.conv1 = Conv2D(num_channels // 8, (3, 3), strides=(2, 2), padding='same', use_bias=False)
+		self.conv2 = Conv2D(num_channels // 4, (3, 3), strides=(2, 2), padding='same', use_bias=False)
+		self.conv3 = Conv2D(num_channels // 2, (3, 3), strides=(2, 2), padding='same', use_bias=False)
+		self.finalconv = Conv2D(num_channels, (3, 3), strides=(2, 2), padding='same', use_bias=False)
 
 		# condense into a decision
 		self.decision = Dense(1, activation='sigmoid')
+
+		self.merge = Concatenate()
 
 	@tf.function
 	def call(self, inputs, genres):
@@ -115,15 +130,21 @@ class Discriminator_Model(tf.keras.Model):
 
 		:return: a batch of values indicating whether the image is real or fake, shape=[batch_size, 1]
 		"""
-		out = self.conv1(inputs)
-		out1 = self.convolve(out, self.conv2)
-		out2 = self.convolve(out1, self.conv3)
-		out3 = self.convolve(out2, self.conv4)
-		out4 = self.convolve(out3, self.conv5)
-		out5 = self.convolve(out4, self.conv6)
-		out6 = self.convolve(out5, self.finalconv)
+		genres = tf.convert_to_tensor(genres)
 
-		return self.decision(tf.reshape(out6, (batch_size, -1)))
+		# set up genre embedding
+		embed = self.embedding(genres)
+		embed = self.embed_reshape(self.embed_dense(embed))
+
+		# merge information
+		out = self.merge([embed, inputs])
+
+		out1 = self.conv1(out)
+		out2 = self.convolve(out1, self.conv2)
+		out3 = self.convolve(out2, self.conv3)
+		out4 = self.convolve(out3, self.finalconv)
+
+		return self.decision(tf.reshape(out4, (batch_size, -1)))
 
 	def convolve(self, x, layer):
 		"""
@@ -141,7 +162,7 @@ class Mapping_Model(tf.keras.Model):
 		Uses a random vector from latent space to learn styles of genres, outputs embeddings.
 		Its output is fed into the affine transform layer.
 		"""
-		self.dense1 = Dense(mapping_dim, use_bias=True, input_shape=(z_dim,), activation=tf.nn.leaky_relu, name='Mapping1')
+		self.dense1 = Dense(mapping_dim, use_bias=True, activation=tf.nn.leaky_relu, name='Mapping1')
 		self.dense2 = Dense(mapping_dim, use_bias=True, activation=tf.nn.leaky_relu, name='Mapping2')
 		self.dense3 = Dense(mapping_dim, use_bias=True, activation=tf.nn.leaky_relu, name='Mapping3')
 		self.dense4 = Dense(mapping_dim, use_bias=True, activation=tf.nn.leaky_relu, name='Mapping4')
@@ -149,7 +170,6 @@ class Mapping_Model(tf.keras.Model):
 		self.dense6 = Dense(mapping_dim, use_bias=True, activation=tf.nn.leaky_relu, name='Mapping6')
 		self.dense7 = Dense(mapping_dim, use_bias=True, activation=tf.nn.leaky_relu, name='Mapping7')
 		self.dense8 = Dense(z_dim, use_bias=True, name='Mapping8')
-
 
 	@tf.function
 	def call(self, r):
@@ -162,6 +182,7 @@ class ADAin_Model(tf.keras.Model):
 		Uses a random vector from latent space to learn styles of genres, outputs embeddings.
 		Its output is fed into the affine transform layer.
 		"""
+		self.final_size = num_channels * 2
 		upspace = num_channels * 4
 		self.dense1 = Dense(upspace, use_bias=True, activation=tf.nn.leaky_relu, name='ADAin1')
 		self.dense2 = Dense(upspace, use_bias=True, activation=tf.nn.leaky_relu, name='ADAin2')
@@ -170,12 +191,11 @@ class ADAin_Model(tf.keras.Model):
 		self.dense5 = Dense(upspace, use_bias=True, activation=tf.nn.leaky_relu, name='ADAin5')
 		self.dense6 = Dense(upspace, use_bias=True, activation=tf.nn.leaky_relu, name='ADAin6')
 		self.dense7 = Dense(upspace, use_bias=True, activation=tf.nn.leaky_relu, name='ADAin7')
-		# self.dense8 = Dense(4 * num_channels, use_bias=True, name='ADAin8', activation='tanh')
-		self.dense8 = Dense(2 * num_channels, use_bias=True, name='ADAin8')
+		self.dense8 = Dense(self.final_size * 2, use_bias=True, name='ADAin8', activation='tanh')
 
 	@tf.function
 	def call(self, w):
-		return tf.reshape(self.dense8(self.dense7(self.dense6(self.dense5(self.dense4(self.dense3(self.dense2(self.dense1(w)))))))), (batch_size, 2, num_channels))
+		return tf.reshape(self.dense8(self.dense7(self.dense6(self.dense5(self.dense4(self.dense3(self.dense2(self.dense1(w)))))))), (batch_size, 2, self.final_size))
 
 class ADAin(Layer):
 	def __init__(self):

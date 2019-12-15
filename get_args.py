@@ -7,7 +7,7 @@ def get_args(want_gpu=False):
         gpu_available = tf.test.is_gpu_available()
         print("GPU Available: ", gpu_available)
     
-    parser = argparse.ArgumentParser(description='DCGAN')
+    parser = argparse.ArgumentParser(description='StyleGAN')
 
     parser.add_argument('--img-dir', type=str, default='./processed_data',
                         help='Data where training images live')
@@ -68,5 +68,8 @@ def get_args(want_gpu=False):
 
     parser.add_argument('--image-side-len', type=int, default=64,
                         help='Length of one side of an image (images must be square)')
+
+    parser.add_argument('--use-fid', type=bool, default=True,
+                        help='Whether or not to use FID')
 
     return parser.parse_args()
