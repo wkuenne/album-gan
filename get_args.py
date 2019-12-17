@@ -69,4 +69,7 @@ def get_args(want_gpu=False):
     parser.add_argument('--image-side-len', type=int, default=64,
                         help='Length of one side of an image (images must be square)')
 
+    parser.add_argument('--default', type=bool, default=False,
+                        help='Processes rock, rap, and jazz album covers')
+
     return parser.parse_args()

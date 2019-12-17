@@ -4,6 +4,12 @@ from os.path import isfile, join, exists
 from PIL import Image
 from get_args import get_args
 
+default_genres = [
+    'rock',
+    'rap',
+    'jazz',
+]
+
 def resize_images(old_dir, new_dir, size, clear_processed=False):
     if (clear_processed and exists(new_dir)):
         rmtree(new_dir)
@@ -32,4 +38,8 @@ def resize_images(old_dir, new_dir, size, clear_processed=False):
 
 
 args = get_args()
-resize_images(args.img_dir, './processed_data' + ('/' if args.processed_dir[0] != '/' else '') + args.processed_dir + ('/' if args.processed_dir[-1] != '/' else ''), (args.image_side_len, args.image_side_len), args.clear_processed)
+if (args.default):
+    for g in default_genres:
+        resize_images('./data/data/' + g + '/', './processed_data/' + g + '/', (args.image_side_len, args.image_side_len), True)
+else:
+    resize_images(args.img_dir, './processed_data' + ('/' if args.processed_dir[0] != '/' else '') + args.processed_dir + ('/' if args.processed_dir[-1] != '/' else ''), (args.image_side_len, args.image_side_len), args.clear_processed)

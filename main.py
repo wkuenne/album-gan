@@ -4,13 +4,11 @@
 # ADAin: https://arxiv.org/pdf/1703.06868.pdf
 
 import tensorflow as tf
-from tensorflow.keras import Model, Sequential
-from tensorflow.keras.layers import Dense, Flatten, Conv2D, BatchNormalization, LeakyReLU, Reshape, Conv2DTranspose
 
 from preprocess import load_image_batch
 from get_args import get_args
 from train_test import train, test
-from models import Generator_Model, Discriminator_Model, Mapping_Model, ADAin_Model, make_noise_scale_net
+from models import Generator_Model, Discriminator_Model
 
 import numpy as np
 import os
@@ -50,9 +48,10 @@ def main():
 	# Initialize models
 	generator = Generator_Model()
 	discriminator = Discriminator_Model()
-	mapping_net = Mapping_Model()
-	noise_net = make_noise_scale_net()
-	adain_net = ADAin_Model()
+	mapping_net = None
+	noise_net = None
+	adain_net = None
+
 
 	# For saving/loading models
 	checkpoint_dir = './checkpoints'
@@ -79,7 +78,7 @@ def main():
 					print("**** SAVING CHECKPOINT AT END OF EPOCH ****")
 					manager.save()
 			if args.mode == 'test':
-				test(generator, args.batch_size, args.z_dim, args.out_dir)
+				test(generator, mapping_net, adain_net, discriminator)
 	except RuntimeError as e:
 		print(e)
 
