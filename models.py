@@ -37,10 +37,9 @@ class Generator_Model(Model):
 		self.initial_reshape = Reshape((self.smallest_img_side_len, self.smallest_img_side_len, num_channels))
 
 		# GAN layers
-		self.deconv1 = Conv2DTranspose(num_channels // 2, (3, 3), strides=(2, 2), padding='same', use_bias=False)
-		self.deconv2 = Conv2DTranspose(num_channels // 4, (3, 3), strides=(2, 2), padding='same', use_bias=False)
-		self.deconv3 = Conv2DTranspose(num_channels // 8, (3, 3), strides=(2, 2), padding='same', use_bias=False)
-		self.finaldeconv = Conv2DTranspose(3, (3, 3), strides=(2, 2), padding='same', use_bias=False, activation='tanh')
+		self.deconv1 = Conv2DTranspose(num_channels // 2, kernel_size=7, strides=1, padding='same')
+		self.deconv2 = Conv2DTranspose(num_channels // 4, kernel_size=5, strides=2, padding='same')
+		self.finaldeconv = Conv2DTranspose(3, kernel_size=5, strides=2, padding='same', activation='tanh')
 
 		# various layers
 		self.merge = Concatenate()
@@ -69,7 +68,6 @@ class Generator_Model(Model):
 		# proceed with GAN
 		out1 = self.deconvolve(self.deconv1, combined)
 		out2 = self.deconvolve(self.deconv2, out1)
-		out3 = self.deconvolve(self.deconv3, out2)
 
 		return self.finaldeconv(out3)
 
@@ -92,15 +90,13 @@ class Discriminator_Model(tf.keras.Model):
 		self.embed_reshape = Reshape((image_side_len, image_side_len, 1))
 
 		# GAN conv layers
-		self.conv1 = Conv2D(num_channels // 8, (5, 5), strides=(2, 2), padding='same', use_bias=False)
-		self.conv2 = Conv2D(num_channels // 4, (5, 5), strides=(2, 2), padding='same', use_bias=False)
-		self.conv3 = Conv2D(num_channels // 2, (5, 5), strides=(2, 2), padding='same', use_bias=False)
-		self.conv4 = Conv2D(num_channels, (5, 5), strides=(2, 2), padding='same', use_bias=False)
+		self.conv1 = Conv2D(num_channels // 4, kernel_size=5, strides=2, padding='same')
+		self.conv2 = Conv2D(num_channels // 2, kernel_size=5, strides=2, padding='same')
+		self.finalconv = Conv2D(num_channels, kernel_size=7, strides=1, padding='same')
 
 		# condense into a decision
 		self.decision = Dense(1, activation='sigmoid')
 
-		# self.norm = BatchNormalization()
 		self.flat = Flatten()
 		self.merge = Concatenate()
 
@@ -124,11 +120,10 @@ class Discriminator_Model(tf.keras.Model):
 		merged = self.merge([inputs, embedding_reshaped])
 
 		# proceed with normal discriminator processes
-		out1 = self.conv1(merged)
+		out1 = tf.nn.leaky_relu(self.conv1(merged))
 		out2 = self.convolve(out1, self.conv2)
-		out3 = self.convolve(out2, self.conv3)
-		out4 = self.convolve(out3, self.conv4)
-		flat = self.flat(out4)
+		out3 = self.convolve(out2, self.finalconv)
+		flat = self.flat(out3)
 
 		return self.decision(flat)
 

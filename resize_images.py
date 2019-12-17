@@ -17,7 +17,7 @@ def resize_images(old_dir, new_dir, size, clear_processed=False):
     if not exists(new_dir):
         makedirs(new_dir)
     elif len(listdir(new_dir)) != 0:
-        print(f'Error: possible overwrite of processed data. Use --clear-processed=True to clear {new_dir}.')
+        print(f'Error: possible overwrite of processed data. Use --clear-processed=True to clear {new_dir}')
         return
 
     all_stuff = listdir(old_dir)
@@ -31,7 +31,7 @@ def resize_images(old_dir, new_dir, size, clear_processed=False):
             img = img.resize(size, Image.ANTIALIAS)
             img.save(new_dir + f)
         except:
-            print(f'Error resizing ${f}')
+            print(f'Error resizing {f}')
             errors += 1
 
     print(f'Resized {len(only_images) - errors} images to {size[0]}x{size[1]} with {errors} errors')
